@@ -11,10 +11,10 @@ terraform {
   }
 
   backend "azurerm" {
-    # resource_group_name  = "rg_states"
-    # storage_account_name = "saargostates"
-    # container_name       = "tfstates"
-    # key                  = "terraform.tfstate"
+    resource_group_name  = "rg_states"
+    storage_account_name = "saargostates"
+    container_name       = "tfstates"
+    key                  = "terraform.tfstate"
   }
 
   required_version = ">= 1.1.2"

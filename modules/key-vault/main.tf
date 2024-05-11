@@ -6,21 +6,21 @@ locals {
   }
   kv_argo = {
     dev = {
-      name                        = "kv-dev-argo"
+      name                        = "kv-argo-dev-we-001"
       enabled_for_disk_encryption = true
       soft_delete_retention_days  = 7
       purge_protection_enabled    = false
       keyvault_sku                = "standard"
     }
     test = {
-      name                        = "kv-test-argo"
+      name                        = "kv-argo-test-we-001"
       enabled_for_disk_encryption = true
       soft_delete_retention_days  = 7
       purge_protection_enabled    = true
       keyvault_sku                = "standard"
     }
     prod = {
-      name                        = "kv-prod-argo"
+      name                        = "kv-argo-prod-we-001"
       enabled_for_disk_encryption = true
       soft_delete_retention_days  = 30
       purge_protection_enabled    = true
