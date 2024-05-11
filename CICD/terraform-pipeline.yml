@@ -1,0 +1,159 @@
+trigger: 
+- none
+
+parameters:
+- name: Environment
+  displayName: Environment
+  type: string
+  default: dev
+  values:
+    - dev
+    - test
+    - prod
+- name: LogLevel
+  displayName: Log level
+  type: string
+  default: None
+  values:
+    - None
+    - ERROR
+    - WARN
+    - INFO
+    - DEBUG
+    - TRACE
+variables: 
+  - group: "TF-variables-${{ parameters.environment }}"
+stages:
+  - stage: tfplanCore
+    displayName: Plan Core
+    jobs:
+    - job: plan
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+      - task: CopyFiles@2
+        displayName: Copy Terraform Files To Artifacts
+        inputs:
+          Contents: "**"
+          TargetFolder: "$(Build.ArtifactStagingDirectory)"
+          CleanTargetFolder: true
+          OverWrite: true
+      - task: TerraformInstaller@1
+        displayName: Install Terraform 'latest'
+        inputs:
+          terraformVersion: "latest"
+      - task: TerraformTaskV4@4
+        displayName: Terraform Init
+        inputs:
+          provider: 'azurerm'
+          command: 'init'
+          workingDirectory: '$(Build.ArtifactStagingDirectory)/configuration/core/'
+          commandOptions: '-upgrade -reconfigure'
+          backendServiceArm: '$(ServiceConnection)'
+          backendAzureRmResourceGroupName: '$(ResourceGroupState)'
+          backendAzureRmStorageAccountName: '$(StorageAccountState)'
+          backendAzureRmContainerName: '$(ContainerState)'
+          backendAzureRmKey: '$(BlobState)'
+      - task: TerraformTaskV4@4
+        displayName: Terraform Validate
+        inputs:
+          provider: 'azurerm'
+          command: 'validate'
+      - task: TerraformTaskV4@4
+        displayName: 'Terraform Worspace select ${{ parameters.Environment }}'
+        enabled: True
+        inputs:
+          provider: 'azurerm'
+          command: 'custom'
+          workingDirectory: '$(Build.ArtifactStagingDirectory)/configuration/core/'
+          customCommand: 'workspace'
+          commandOptions: 'select ${{ parameters.Environment }}'
+          outputTo: 'console'
+          environmentServiceNameAzureRM: '$(ServiceConnection)'
+      - task: TerraformTaskV4@4
+        displayName: 'Terraform Plan to ${{ parameters.environment }}'
+        enabled: True
+        inputs:
+          command: plan
+          workingDirectory: '$(Build.ArtifactStagingDirectory)/configuration/core/'
+          commandOptions: '-out="planOutput.tfplan"'
+          environmentServiceNameAzureRM: "$(ServiceConnection)"
+        env:
+          TF_VAR_tenant_id: $(TenantId)
+          TF_VAR_subscription_id: $(SubscriptionId)
+          TF_VAR_client_id: $(ClientId)
+          TF_VAR_client_secret: $(Secret)
+          TF_VAR_azure_region: $(AzureRegion)
+          TF_VAR_sql_admin_psw: $(SqlAdminPsw)
+          TF_VAR_sql_dbuser_argo_password: $(SqlDbuserArgoPassword)
+          ${{ if ne(parameters.logLevel, 'None') }}:
+            TF_LOG: ${{parameters.logLevel}}
+      - task: PublishPipelineArtifact@1
+        inputs:
+          targetPath: '$(Build.ArtifactStagingDirectory)/configuration/core/planOutput.tfplan'
+          artifact: 'planOutput'
+          publishLocation: 'pipeline'
+  - stage: tfapplyCore
+    displayName: Apply Core
+    condition: succeeded('tfplanCore')
+    dependsOn: tfplanCore
+    jobs:
+    - deployment: RunApply
+      displayName: 'Run Apply to ${{ parameters.environment }}'  
+      environment: 'TF_infra_${{ parameters.environment }}'
+      pool:
+        vmImage: 'ubuntu-latest'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - task: CopyFiles@2
+              displayName: Copy Terraform Files To Artifacts
+              inputs:
+                Contents: "**"
+                TargetFolder: "$(Build.ArtifactStagingDirectory)"
+                CleanTargetFolder: true
+                OverWrite: true
+            - task: TerraformInstaller@1
+              displayName: Install Terraform 'latest'
+              inputs:
+                terraformVersion: "latest"
+            - task: TerraformTaskV4@4
+              displayName: Terraform Init
+              inputs:
+                provider: 'azurerm'
+                command: 'init'
+                workingDirectory: '$(Build.ArtifactStagingDirectory)/configuration/core/'
+                commandOptions: '-upgrade -reconfigure'
+                backendServiceArm: '$(ServiceConnection)'
+                backendAzureRmResourceGroupName: '$(ResourceGroupState)'
+                backendAzureRmStorageAccountName: '$(StorageAccountState)'
+                backendAzureRmContainerName: '$(ContainerState)'
+                backendAzureRmKey: '$(BlobState)'
+            - task: TerraformTaskV4@4
+              displayName: 'Terraform Worspace select ${{ parameters.Environment }}'
+              enabled: True
+              inputs:
+                provider: 'azurerm'
+                command: 'custom'
+                workingDirectory: '$(Build.ArtifactStagingDirectory)/configuration/core/'
+                customCommand: 'workspace'
+                commandOptions: 'select ${{ parameters.Environment }}'
+                outputTo: 'console'
+                environmentServiceNameAzureRM: '$(ServiceConnection)'
+            - task: DownloadPipelineArtifact@2
+              inputs:
+                buildType: 'current'
+                artifactName: 'planOutput'
+                targetPath: '$(Build.ArtifactStagingDirectory)/configuration/core/'
+            - task: TerraformTaskV4@4
+              displayName: Terraform Apply
+              enabled: True
+              inputs:
+                command: apply
+                workingDirectory: '$(Build.ArtifactStagingDirectory)/configuration/core/'
+                commandOptions: 'planOutput.tfplan'
+                environmentServiceNameAzureRM: '$(ServiceConnection)'
+              env:
+                ${{ if ne(parameters.logLevel, 'None') }}:
+                  TF_LOG: ${{parameters.logLevel}}

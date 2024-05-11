@@ -1,5 +1,4 @@
 locals {
-  environment = terraform.workspace
   resource_group_name = {
     dev  = "rg-dev-infra"
     test = "rg-test-infra"
@@ -9,7 +8,7 @@ locals {
     dev = {
       name                        = "kv-dev-argo"
       enabled_for_disk_encryption = true
-      soft_delete_retention_days  = 0
+      soft_delete_retention_days  = 7
       purge_protection_enabled    = false
       keyvault_sku                = "standard"
     }
@@ -30,14 +29,14 @@ locals {
   }
 }
 resource "azurerm_key_vault" "kv_argo" {
-  name                        = local.kv_argo[local.environment].name
+  name                        = local.kv_argo[var.environment].name
   resource_group_name         = var.resource_group_name
   location                    = var.azure_region
-  enabled_for_disk_encryption = local.kv_argo[local.environment].enabled_for_disk_encryption
+  enabled_for_disk_encryption = local.kv_argo[var.environment].enabled_for_disk_encryption
   tenant_id                   = var.tenant_id
-  soft_delete_retention_days  = local.kv_argo[local.environment].soft_delete_retention_days
-  purge_protection_enabled    = local.kv_argo[local.environment].purge_protection_enabled
+  soft_delete_retention_days  = local.kv_argo[var.environment].soft_delete_retention_days
+  purge_protection_enabled    = local.kv_argo[var.environment].purge_protection_enabled
 
-  sku_name = local.kv_argo[local.environment].keyvault_sku
+  sku_name = local.kv_argo[var.environment].keyvault_sku
 
 }

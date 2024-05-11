@@ -1,0 +1,6 @@
+tenant_id = "00000000-0000-0000-0000-000000000000"
+subscription_id = "00000000-0000-0000-0000-000000000000"
+client_id = "00000000-0000-0000-0000-000000000000"
+azure_region = "westeurope"
+sql_admin_psw = "PiripicchioAdmin01!"
+sql_dbuser_argo_password = "PiripicchioArgo01!"

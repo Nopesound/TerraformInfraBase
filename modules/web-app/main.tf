@@ -1,5 +1,4 @@
 locals {
-  environment = terraform.workspace
   resource_group_name = {
     dev  = "rg-dev-infra"
     test = "rg-test-infra"
@@ -45,21 +44,22 @@ locals {
 }
 
 resource "azurerm_service_plan" "fe_plan_app" {
-  name                = local.fe_plan_app[local.environment].name
+  name                = local.fe_plan_app[var.environment].name
   resource_group_name = var.resource_group_name
   location            = var.azure_region
-  os_type             = local.fe_plan_app[local.environment].os_type
-  sku_name            = local.fe_plan_app[local.environment].skuname
+  os_type             = local.fe_plan_app[var.environment].os_type
+  sku_name            = local.fe_plan_app[var.environment].skuname
 }
 resource "azurerm_linux_web_app" "fe_app" {
-  name                = local.fe_app[local.environment].name
+  name                = local.fe_app[var.environment].name
   resource_group_name = var.resource_group_name
   location            = var.azure_region
   service_plan_id     = azurerm_service_plan.fe_plan_app.id
-  enabled                       = local.fe_app[local.environment].enabled
-  https_only                    = local.fe_app[local.environment].https_only
-  public_network_access_enabled = local.fe_app[local.environment].public_network_access_enabled
+  enabled                       = local.fe_app[var.environment].enabled
+  https_only                    = local.fe_app[var.environment].https_only
+  public_network_access_enabled = local.fe_app[var.environment].public_network_access_enabled
 
   site_config {
   }
+  depends_on = [ azurerm_service_plan.fe_plan_app ]
 }

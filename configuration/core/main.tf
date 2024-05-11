@@ -6,11 +6,16 @@ terraform {
     }
     mssql = {
       source  = "betr-io/mssql"
-      version = "0.2.4"
+      version = "~> 0.3"
     }
   }
 
-  backend "azurerm" {}
+  backend "azurerm" {
+    # resource_group_name  = "rg_states"
+    # storage_account_name = "saargostates"
+    # container_name       = "tfstates"
+    # key                  = "terraform.tfstate"
+  }
 
   required_version = ">= 1.1.2"
 }
@@ -41,5 +46,38 @@ locals {
 
 data "azurerm_resource_group" "rg_main" {
   name = local.resource_group_name[local.environment]
+}
 
+module "key_vault" {
+  source              = "../../modules/key-vault"
+  providers = {
+    azurerm.src = azurerm
+  }
+  resource_group_name = data.azurerm_resource_group.rg_main.name
+  environment         = local.environment
+  azure_region        = var.azure_region
+  tenant_id           = var.tenant_id
+}
+
+module "web-app" {
+  source              = "../../modules/web-app"
+  providers = {
+    azurerm.src = azurerm
+  }
+  resource_group_name = data.azurerm_resource_group.rg_main.name
+  environment        = local.environment
+  azure_region        = var.azure_region  
+}
+module "database" {
+  source              = "../../modules/database"
+  providers = {
+    azurerm.src = azurerm
+  }
+  resource_group_name = data.azurerm_resource_group.rg_main.name
+  environment = local.environment
+  azure_region        = var.azure_region
+  sql_admin_psw       = var.sql_admin_psw
+  sql_dbuser_argo_password = var.sql_dbuser_argo_password
+  kv_argo_id          = module.key_vault.kv_argo_id
+  depends_on = [ module.key_vault ]
 }
